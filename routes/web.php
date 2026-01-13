@@ -30,4 +30,5 @@ Route::middleware('auth')->group(function () {
     Route::post('/delete-product/{id}', [AppController::class, 'deleteProduct']);
     Route::get('/products/generate-pdf/{id}', [AppController::class, 'generateProductInventoryPdf'])->name('products.pdf');
     Route::get('/seller/dashboard', [AppController::class, 'getSellerDashboardStats'])->name('seller.dashboard')->middleware('auth');
+    Route::get('/demo-report', [AppController::class, 'generateDummyProductInventoryPdf']);
 });

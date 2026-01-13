@@ -10,41 +10,40 @@ class Product extends Model
 {
     protected $table = 'tbl_product_details';
 
-    public static function saveFullProduct($data, $files)
+    public function saveFullProduct(array $data): bool
     {
-        return DB::transaction(function () use ($data, $files) {
-            $productId = DB::table('tbl_product_details')->insertGetId([
+        DB::beginTransaction();
+        try {
+            $product = self::create([
                 'user_id' => Auth::id(),
                 'product_name' => $data['product_name'],
-                'product_description' => $data['product_description'],
-                'created_at' => now(),
-                'updated_at' => now(),
+                'product_description' => $data['product_description'] ?? null,
             ]);
 
             if (isset($data['brand_name'])) {
                 foreach ($data['brand_name'] as $key => $name) {
                     $imagePath = null;
-                    
-                   if (isset($files['brand_image'][$key])) {
-                        $image = $files['brand_image'][$key];
-                        $imageName = time() . '_brand_' . $key . '.' . $image->getClientOriginalExtension();
-                        $image->move(base_path('brand_images'), $imageName);                    
-                        $imagePath = 'brand_images/' . $imageName;
+                    if (isset($data['brand_image'][$key])) {
+                        $file = $data['brand_image'][$key];
+                        $fileName = time() . "_brand_" . $key . "." . $file->getClientOriginalExtension();
+                        $file->move(public_path('brand_images'), $fileName);
+                        $imagePath = 'brand_images/' . $fileName;
                     }
 
-                    DB::table('tbl_brand_details')->insert([
-                        'product_id' => $productId,
+                    $product->brands()->create([
                         'brand_name' => $name,
                         'price'      => $data['price'][$key],
-                        'detail'     => $data['detail'][$key],
+                        'detail'     => $data['detail'][$key] ?? null,
                         'brand_image'=> $imagePath,
-                        'created_at' => now(),
-                        'updated_at' => now(),
                     ]);
                 }
             }
+            DB::commit();
             return true;
-        });
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
     }
 
     public static function getProductListForUser()
