@@ -15,3 +15,4 @@ yarn-error.log
 /.vscode
 /brand_images/*
 !/brand_images/.gitkeep
+!/brand_images/placeholder.png
