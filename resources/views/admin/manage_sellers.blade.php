@@ -60,6 +60,30 @@
     .status-pill { padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 800; display: inline-block; letter-spacing: 0.5px; border: 1px solid; }
     .status-active { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
     .status-deactive { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+
+    /* DataTables Search Bar Streamlined */
+    .dataTables_filter { margin-bottom: 25px; display: flex; justify-content: flex-end; }
+    .dataTables_filter label { margin: 0; }
+    .dataTables_filter input {
+        width: 220px !important;
+        height: 40px;
+        padding: 5px 15px 5px 38px !important;
+        border: 2px solid #f1f5f9 !important;
+        border-radius: 10px !important;
+        background-color: #f8fafc !important;
+        font-size: 13px !important;
+        transition: 0.3s all ease;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: 12px center;
+        background-size: 18px;
+    }
+    .dataTables_filter input:focus { 
+        width: 260px !important;
+        border-color: var(--primary) !important; 
+        background-color: #fff !important;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.08);
+    }
 </style>
 
 <div style="background: var(--white); padding: 30px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
@@ -266,7 +290,7 @@
             dom: '<"d-flex justify-content-between align-items-center mb-4"f>rt<"d-flex justify-content-between align-items-center mt-4"ip>',
             language: {
                 search: "",
-                searchPlaceholder: "Search Registry...",
+                searchPlaceholder: "Search Sellers Registry...",
                 paginate: {
                     previous: '<i class="fas fa-chevron-left"></i>',
                     next: '<i class="fas fa-chevron-right"></i>'
