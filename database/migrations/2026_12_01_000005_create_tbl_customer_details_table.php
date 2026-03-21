@@ -6,24 +6,20 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     public function up(): void {
-        Schema::create('tbl_admin_details', function (Blueprint $table) {
+        Schema::create('tbl_customer_details', function (Blueprint $table) {
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
-            $table->string('mobile_no');
-            $table->string('country');
-            $table->string('state');
-            $table->json('skills');
+            $table->string('mobile_no')->nullable();
+            $table->string('country')->nullable();
+            $table->string('state')->nullable();
             $table->string('password');
-            $table->enum('role', ['admin', 'seller', 'customer'])->default('customer');
             $table->enum('status', ['0', '1'])->default('0'); 
-            
-            $table->integer('delete_status')->default(0); 
             $table->timestamps();
         });
     }
 
     public function down(): void {
-        Schema::dropIfExists('tbl_admin_details');
+        Schema::dropIfExists('tbl_customer_details');
     }
 };

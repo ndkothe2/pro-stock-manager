@@ -190,15 +190,15 @@
                     <i class="fas fa-user-plus"></i> Seller Management
                 </a>
 
-                <a href="#" class="menu-item disabled-link">
+                <a href="{{ route('admin.analytics') }}" class="menu-item {{ Request::is('admin/analytics') ? 'active' : '' }}">
                     <i class="fas fa-chart-pie"></i> Inventory Analytics
                 </a>
                 
-                <a href="#" class="menu-item disabled-link">
+                <a href="{{ route('admin.logs') }}" class="menu-item {{ Request::is('admin/logs') ? 'active' : '' }}">
                     <i class="fas fa-history"></i> System Logs
                 </a>
                 
-                <a href="#" class="menu-item disabled-link">
+                <a href="{{ route('admin.configurations') }}" class="menu-item {{ Request::is('admin/configurations') ? 'active' : '' }}">
                     <i class="fas fa-sliders-h"></i> Configurations
                 </a>
             </div>

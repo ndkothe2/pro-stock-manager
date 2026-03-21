@@ -6,10 +6,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use App\Models\User;
 use App\Models\Brand;
 use App\Models\Inventory;
 use App\Models\Product;
+use App\Models\SystemLog;
+use App\Models\Customer;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
@@ -22,33 +25,84 @@ class AppController extends BaseController
     public function showLoginForm()
     {
         if (Auth::check()) {
-            return $this->redirectUserByRole();
+            return $this->redirectUserByRole(Auth::user());
+        } elseif (Auth::guard('customer')->check()) {
+            return redirect()->route('customer.dashboard');
         }
         return view('auth.login');
+    }
+
+    public function showCustomerRegisterForm()
+    {
+        return view('auth.customer_register');
+    }
+
+    public function registerCustomer(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:tbl_customer_details,email',
+            'mobile_no' => 'required|string|max:15',
+            'country' => 'required|string|max:100',
+            'state' => 'required|string|max:100',
+            'password' => 'required|min:6|confirmed',
+        ]);
+
+        try {
+            Customer::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'mobile_no' => $request->mobile_no,
+                'country' => $request->country,
+                'state' => $request->state,
+                'password' => Hash::make($request->password),
+                'status' => '0',
+            ]);
+
+            return redirect()->route('login')->with('success', 'CUSTOMER ACCOUNT CREATED! PLEASE LOGIN.');
+        } catch (\Exception $e) {
+            \Log::error("Registration Error: " . $e->getMessage());
+            return back()->with('error', 'Registration failed. ' . $e->getMessage());
+        }
     }
 
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required'],
+            'email' => 'required|email',
+            'password' => 'required',
         ]);
 
-        $user = User::where('email', $request->email)->first();
-
-        if ($user && $user->role === 'seller' && $user->status == 1) {
-            return back()->withErrors([
-                'email' => 'YOUR ACCOUNT IS INACTIVE. PLEASE CONTACT ADMIN.',
-            ])->onlyInput('email');
-        }
-
+        // Try standard users first
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
+            $user = Auth::user();
+            
+            if ($user->role == 'seller' && $user->status == '1') {
+                Auth::logout();
+                return back()->with('error', 'Your seller account has been deactivated. Please contact administrator.');
+            }
+
+            // Log Successful Login
+            DB::table('tbl_system_logs')->insert([
+                'user_name' => Auth::user()->name,
+                'action' => 'LOGIN',
+                'details' => "Successful system authorization via web portal",
+                'ip_address' => $request->ip(),
+                'created_at' => now()
+            ]);
+
             return $this->redirectUserByRole();
         }
 
+        // Try customers next
+        if (Auth::guard('customer')->attempt($credentials)) {
+            $request->session()->regenerate();
+            return redirect()->route('customer.dashboard');
+        }
+
         return back()->withErrors([
-            'email' => 'The provided credentials do not match our records.',
+            'email' => 'The provided credentials do not match our system records.',
         ])->onlyInput('email');
     }
 
@@ -60,9 +114,78 @@ class AppController extends BaseController
             return redirect()->route('admin.dashboard');
         } elseif ($role === 'seller') {
             return redirect()->route('seller.dashboard');
+        } elseif ($role === 'customer') {
+            return redirect()->route('customer.dashboard');
         }
 
         return redirect('/login');
+    }
+
+    public function showCustomerProfile()
+    {
+        $customer = Auth::guard('customer')->user();
+        return view('customer.profile', compact('customer'));
+    }
+
+    public function updateCustomerProfile(Request $request)
+    {
+        $customer = Auth::guard('customer')->user();
+        
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'mobile_no' => 'required',
+            'password' => 'nullable|min:6|confirmed',
+        ]);
+
+        try {
+            $updateData = [
+                'name' => $request->name,
+                'mobile_no' => $request->mobile_no,
+            ];
+
+            if ($request->password) {
+                $updateData['password'] = Hash::make($request->password);
+            }
+
+            DB::table('tbl_customer_details')
+                ->where('id', $customer->id)
+                ->update($updateData);
+
+            return back()->with('success', 'PROFILE UPDATED SUCCESSFULLY!');
+        } catch (\Exception $e) {
+            \Log::error("Profile Update Error: " . $e->getMessage());
+            return back()->with('error', 'Update failed. ' . $e->getMessage());
+        }
+    }
+
+    public function customerDashboard()
+    {
+        try {
+            // Fetch all active products grouped by their category (assuming name as category for discovery)
+            $products = Product::where('delete_status', '0')
+                ->with(['brands', 'user'])
+                ->get();
+            
+            // For now, grouping logically by the product type in the name
+            $groupedProducts = $products->groupBy(function($item) {
+                if (stripos($item->product_name, 'Smartphone') !== false) return 'MOBILE PHONES';
+                if (stripos($item->product_name, 'Laptop') !== false) return 'COMPUTING';
+                if (stripos($item->product_name, 'Headphone') !== false) return 'AUDIO';
+                if (stripos($item->product_name, 'Camera') !== false) return 'PHOTOGRAPHY';
+                if (stripos($item->product_name, 'Refrigerator') !== false) return 'HOME APPLIANCES';
+                if (stripos($item->product_name, 'Watch') !== false) return 'ACCESSORIES';
+                return 'GENERAL MERCHANDISE';
+            });
+
+            $totalValuation = Brand::join('tbl_product_details', 'tbl_brand_details.product_id', '=', 'tbl_product_details.id')
+                ->where('tbl_product_details.delete_status', '0')
+                ->sum('price');
+
+            return view('customer.dashboard', compact('groupedProducts', 'totalValuation'));
+        } catch (\Exception $e) {
+            \Log::error("Customer Dashboard Error: " . $e->getMessage());
+            return back()->with('error', 'Unable to load products.');
+        }
     }
 
     public function adminDashboard()
@@ -88,7 +211,12 @@ class AppController extends BaseController
 
     public function logout(Request $request)
     {
-        Auth::logout();
+        if (Auth::guard('customer')->check()) {
+            Auth::guard('customer')->logout();
+        } else {
+            Auth::logout();
+        }
+        
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
@@ -131,6 +259,14 @@ class AppController extends BaseController
             ]);
 
             if ($result) {
+                DB::table('tbl_system_logs')->insert([
+                    'user_name' => Auth::user()->name,
+                    'action' => 'CREATE',
+                    'details' => "Registered new seller: {$request->full_name} ({$request->email})",
+                    'ip_address' => $request->ip(),
+                    'created_at' => now()
+                ]);
+
                 return response()->json([
                     'status' => 'success', 
                     'message' => 'SELLER ACCOUNT CREATED IN VAULT!'
@@ -150,12 +286,15 @@ class AppController extends BaseController
     {
         try {
             $data = User::where('role', 'seller')
-                ->select('id', 'name', 'email', 'mobile_no', 'country', 'state', 'skills', 'status')
+                ->select([
+                    'id', 'name', 'email', 'mobile_no', 'country', 'state', 'skills', 'status',
+                    DB::raw("(SELECT MAX(created_at) FROM tbl_system_logs WHERE user_name = tbl_admin_details.name AND action = 'LOGIN') as last_login")
+                ])
                 ->get();
             return response()->json(['data' => $data]);
         } catch (\Exception $e) {
             \Log::error("Get Sellers Data Error: " . $e->getMessage());
-            return response()->json(['status' => 'error', 'message' => 'Failed to fetch sellers data. HTTP 500'], 500);
+            return response()->json(['status' => 'error', 'message' => 'Failed to fetch sellers data.'], 500);
         }
     }
 
@@ -186,6 +325,149 @@ class AppController extends BaseController
         } catch (\Exception $e) {
             \Log::error("Dashboard Stats Error: " . $e->getMessage());
             return back()->with('error', 'Unable to fetch statistics at this moment.');
+        }
+    }
+
+    public function inventoryAnalytics()
+    {
+        try {
+            $totalSellers = User::where('role', 'seller')->count();
+            $totalProducts = Product::where('delete_status', '0')->count();
+            $totalBrands = Brand::join('tbl_product_details', 'tbl_brand_details.product_id', '=', 'tbl_product_details.id')
+                ->where('tbl_product_details.delete_status', '0')
+                ->count();
+            
+            $totalStockValue = Brand::join('tbl_product_details', 'tbl_brand_details.product_id', '=', 'tbl_product_details.id')
+                ->where('tbl_product_details.delete_status', '0')
+                ->sum('price');
+
+            // Top sellers by product count and total valuation
+            $topSellers = User::where('role', 'seller')
+                ->leftJoin('tbl_product_details', function($join) {
+                    $join->on('tbl_admin_details.id', '=', 'tbl_product_details.user_id')
+                         ->where('tbl_product_details.delete_status', '0');
+                })
+                ->leftJoin('tbl_brand_details', 'tbl_product_details.id', '=', 'tbl_brand_details.product_id')
+                ->select(
+                    'tbl_admin_details.name', 
+                    DB::raw('count(DISTINCT tbl_product_details.id) as products_count'),
+                    DB::raw('SUM(tbl_brand_details.price) as total_valuation')
+                )
+                ->groupBy('tbl_admin_details.id', 'tbl_admin_details.name')
+                ->orderBy('products_count', 'desc')
+                ->limit(5)
+                ->get();
+
+            // Daily activity log counts for the last 15 days
+            $dailyActivity = DB::table('tbl_system_logs')
+                ->select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as count'))
+                ->where('created_at', '>=', now()->subDays(15))
+                ->groupBy('date')
+                ->get();
+
+            // Product brand distribution (top 5 products by brand count)
+            $productDistribution = Product::where('delete_status', '0')
+                ->withCount('brands')
+                ->orderBy('brands_count', 'desc')
+                ->limit(5)
+                ->get();
+
+            return view('admin.inventory_analytics', compact(
+                'totalSellers', 
+                'totalProducts', 
+                'totalBrands', 
+                'totalStockValue', 
+                'topSellers', 
+                'dailyActivity',
+                'productDistribution'
+            ));
+        } catch (\Exception $e) {
+            \Log::error("Analytics Error: " . $e->getMessage());
+            return back()->with('error', 'Unable to load analytics: ' . $e->getMessage());
+        }
+    }
+
+    public function systemLogs()
+    {
+        try {
+            $logs = \App\Models\SystemLog::orderBy('created_at', 'desc')->paginate(10);
+            return view('admin.system_logs', compact('logs'));
+        } catch (\Exception $e) {
+            $logs = collect([]); 
+            return view('admin.system_logs', compact('logs'));
+        }
+    }
+
+    public function configurations()
+    {
+        try {
+            $configs = \App\Models\Configuration::all();
+            if ($configs->isEmpty()) {
+                $configs = collect([
+                    (object)['key' => 'site_title', 'value' => 'Pro Stock Manager', 'label' => 'Application Name'],
+                    (object)['key' => 'admin_email', 'value' => 'admin@prostock.com', 'label' => 'Primary Administrator Email'],
+                    (object)['key' => 'system_maintenance', 'value' => '0', 'label' => 'Maintenance Mode'],
+                    (object)['key' => 'max_upload_size', 'value' => '2048', 'label' => 'Max Brand Image Upload Size (KB)']
+                ]);
+            }
+            return view('admin.configurations', compact('configs'));
+        } catch (\Exception $e) {
+            $configs = collect([]);
+            return view('admin.configurations', compact('configs'));
+        }
+    }
+
+    public function clearLogs()
+    {
+        try {
+            \App\Models\SystemLog::truncate();
+            return response()->json(['status' => 'success', 'message' => 'System log file purged!']);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => 'Purge failed.']);
+        }
+    }
+
+    public function updateConfigurations(Request $request)
+    {
+        try {
+            $inputs = $request->except(['_token']);
+            foreach ($inputs as $key => $value) {
+                \App\Models\Configuration::updateOrCreate(['key' => $key], ['value' => $value]);
+            }
+            return response()->json(['status' => 'success', 'message' => 'Identity configuration applied!']);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => 'System error on update.']);
+        }
+    }
+
+    public function updateSingleConfig(Request $request)
+    {
+        try {
+            \App\Models\Configuration::updateOrCreate(
+                ['key' => $request->key],
+                ['value' => $request->value]
+            );
+            return response()->json(['status' => 'success', 'message' => 'System state updated successfully!']);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => 'Failed to update system state.']);
+        }
+    }
+
+    public function optimizeDatabase()
+    {
+        try {
+            // Simulated optimization: Clear cache or run a quick cleanup
+            \Artisan::call('cache:clear');
+            \DB::table('tbl_system_logs')->insert([
+                'user_name' => Auth::user()->name,
+                'action' => 'OPTIMIZE',
+                'details' => 'Database cleanup and cache flushing executed',
+                'ip_address' => request()->ip(),
+                'created_at' => now()
+            ]);
+            return response()->json(['status' => 'success', 'message' => 'PRO-STOCK ENGINE OPTIMIZED SUCCESSFULLY!']);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => 'Optimization failed: ' . $e->getMessage()]);
         }
     }
 

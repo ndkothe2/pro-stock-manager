@@ -190,6 +190,9 @@
         </div>
 
         <button type="submit" class="btn-login">Sign In</button>
+        <div style="text-align: center; margin-top: 20px; font-size: 14px; color: var(--text-muted);">
+            Don't have an account? <a href="{{ route('register') }}" style="color: var(--primary); text-decoration: none; font-weight: 700;">Join as Customer</a>
+        </div>
     </form>
 
     <div class="footer">

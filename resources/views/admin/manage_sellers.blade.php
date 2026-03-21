@@ -100,11 +100,10 @@
     <table id="sellerDataTable" class="table table-hover" style="width: 100%; border-radius: 12px; overflow: hidden; border: none;">
         <thead style="background-color: #f8fafc;">
             <tr style="text-align: left; color: #64748b; text-transform: uppercase; font-size: 11px; letter-spacing: 1px; font-weight: 700;">
-                <th style="padding: 18px 15px;">Seller Name</th>
-                <th style="padding: 18px 15px;">Email</th>
-                <th style="padding: 18px 15px;">Mobile No</th>
-                <th style="padding: 18px 15px;">Location</th>
+                <th style="padding: 18px 15px;">Seller Profile</th>
+                <th style="padding: 18px 15px;">Contact Interface</th>
                 <th style="padding: 18px 15px;">Expertise (Skills)</th>
+                <th style="padding: 18px 15px;">Last Account Access</th>
                 <th style="padding: 18px 15px;" class="text-center">Status</th>
                 <th style="padding: 18px 15px;" class="text-center">Action</th>
             </tr>
@@ -229,28 +228,34 @@
 
         sellerTable = $('#sellerDataTable').DataTable({
             processing: true,
-            serverSide: false,
             ajax: { url: "{{ route('seller.getAllSellers') }}", type: "GET" },
             columns: [
                 { 
-                    data: 'name', 
-                    className: 'fw-bold align-middle ps-3',
-                    render: (data) => `<span style="color: #1e293b; font-size: 14px;">${data}</span>`
-                },
-                { 
-                    data: 'email', 
-                    className: 'align-middle',
-                    render: (data) => `<span class="text-muted" style="font-size: 13px;">${data}</span>`
-                },
-                { 
-                    data: 'mobile_no', 
-                    className: 'align-middle fw-bold',
-                    render: (data) => `<span style="color: #475569; font-size: 13px;">${data}</span>`
+                    data: null, 
+                    className: 'align-middle ps-3',
+                    render: function(data) {
+                        return `
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 35px; height: 35px; background: #eef2ff; color: #4f46e5; display: flex; align-items: center; justify-content: center; border-radius: 10px; font-weight: 800; font-size: 14px;">
+                                    ${data.name.substring(0, 1)}
+                                </div>
+                                <div>
+                                    <div style="font-weight: 700; color: #1e293b; font-size: 14px;">${data.name}</div>
+                                    <div style="font-size: 11px; color: #94a3b8;"><i class="fas fa-map-marker-alt"></i> ${data.state}, ${data.country}</div>
+                                </div>
+                            </div>`;
+                    }
                 },
                 { 
                     data: null, 
-                    className: 'align-middle text-secondary',
-                    render: (data) => `<span style="font-size: 13px;">${data.state}, ${data.country}</span>`
+                    className: 'align-middle',
+                    render: function(data) {
+                        return `
+                            <div style="font-size: 13px;">
+                                <div style="color: #475569; font-weight: 600;"><i class="far fa-envelope"></i> ${data.email}</div>
+                                <div style="color: #94a3b8;"><i class="fas fa-phone-alt" style="font-size: 10px;"></i> ${data.mobile_no}</div>
+                            </div>`;
+                    }
                 },
                 { 
                     data: 'skills', 
@@ -259,10 +264,20 @@
                         try {
                             let skills = (typeof data === 'string') ? JSON.parse(data) : data;
                             if (Array.isArray(skills)) {
-                                return skills.map(skill => `<span class="badge" style="background: #f0f4ff; color: #4f46e5; border: 1px solid #e0e7ff; font-size: 10px; margin: 2px; padding: 5px 10px; border-radius: 6px;">${skill.toUpperCase()}</span>`).join('');
+                                return skills.map(skill => `<span class="badge" style="background: white; color: #64748b; border: 1px solid #e2e8f0; font-size: 10px; margin: 2px; padding: 4px 8px; border-radius: 6px; font-weight: 700;">${skill.toUpperCase()}</span>`).join('');
                             }
-                            return `<span class="text-muted small">---</span>`;
-                        } catch(e) { return `<span class="text-muted small">---</span>`; }
+                            return `---`;
+                        } catch(e) { return `---`; }
+                    }
+                },
+                { 
+                    data: 'last_login', 
+                    className: 'align-middle',
+                    render: function(data) {
+                        if(!data) return `<span style="font-size: 11px; color: #ef4444; font-weight: 800;"><i class="fas fa-exclamation-triangle"></i> NEVER ACCESSED</span>`;
+                        let date = new Date(data);
+                        return `<div style="font-size: 12px; color: #1e293b; font-weight: 600;">${date.toLocaleDateString('en-GB')}</div>
+                                <div style="font-size: 11px; color: #94a3b8;">at ${date.toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit'})}</div>`;
                     }
                 },
                 { 
@@ -270,8 +285,8 @@
                     className: 'text-center align-middle',
                     render: function(data) {
                         let isActive = (data == '0');
-                        return `<span class="status-pill ${isActive ? 'status-active' : 'status-deactive'}">
-                                    ${isActive ? '● ACTIVE' : '● DEACTIVATED'}
+                        return `<span class="status-pill ${isActive ? 'status-active' : 'status-deactive'}" style="width:90px; text-align:center;">
+                                    ${isActive ? 'ACTIVE' : 'INACTIVE'}
                                 </span>`;
                     }
                 },
@@ -281,9 +296,11 @@
                     render: function(data) {
                         let isActive = (data.status == '0');
                         return `
-                            <button class="action-btn-circle" onclick="confirmStatusChange(${data.id}, '${data.status}')" title="${isActive ? 'Deactivate' : 'Activate'}">
-                                <i class="fas ${isActive ? 'fa-user-slash text-danger' : 'fa-user-check text-success'}"></i>
-                            </button>`;
+                            <div style="display: flex; gap: 8px; justify-content: center;">
+                                <button class="action-btn-circle" onclick="confirmStatusChange(${data.id}, '${data.status}')" title="${isActive ? 'Deactivate Account' : 'Activate Account'}">
+                                    <i class="fas ${isActive ? 'fa-lock-open text-success' : 'fa-lock text-danger'}"></i>
+                                </button>
+                            </div>`;
                     }
                 }
             ],
