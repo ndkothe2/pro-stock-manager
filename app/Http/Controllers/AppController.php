@@ -69,8 +69,10 @@ class AppController extends BaseController
     {
         try {
             $sellerCount = User::where('role', 'seller')->count();
-            $brandCount = Brand::getTotalBrands();
-            $inventoryCount = Inventory::getTotalStock();
+            $brandCount = Brand::join('tbl_product_details', 'tbl_brand_details.product_id', '=', 'tbl_product_details.id')
+                ->where('tbl_product_details.delete_status', '0')
+                ->count();
+            $inventoryCount = Product::where('delete_status', '0')->count();
 
             return view('admin.admin_dashboard', compact('sellerCount', 'brandCount', 'inventoryCount'));
         } catch (\Exception $e) {
@@ -115,14 +117,27 @@ class AppController extends BaseController
             'password'  => 'required|min:6|confirmed',
         ]);
 
-        $skills = json_decode($request->skills, true);
-        $result = User::authorizeSellerEntry($request->all(), $skills);
-
-        if ($result) {
-            return response()->json([
-                'status' => 'success', 
-                'message' => 'SELLER ACCOUNT CREATED IN VAULT!'
+        try {
+            $skills = json_decode($request->skills, true);
+            $result = User::create([
+                'name'       => $request->full_name,
+                'email'      => $request->email,
+                'mobile_no'  => $request->mobile_no, 
+                'country'    => $request->country,
+                'state'      => $request->state,
+                'skills'     => json_encode($skills), 
+                'password'   => Hash::make($request->password),
+                'role'       => 'seller', 
             ]);
+
+            if ($result) {
+                return response()->json([
+                    'status' => 'success', 
+                    'message' => 'SELLER ACCOUNT CREATED IN VAULT!'
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error("SELLER_AUTH_ERROR: " . $e->getMessage());
         }
 
         return response()->json([
@@ -134,7 +149,9 @@ class AppController extends BaseController
     public function getSellersData()
     {
         try {
-            $data = User::getAllSellers();
+            $data = User::where('role', 'seller')
+                ->select('id', 'name', 'email', 'mobile_no', 'country', 'state', 'skills', 'status')
+                ->get();
             return response()->json(['data' => $data]);
         } catch (\Exception $e) {
             \Log::error("Get Sellers Data Error: " . $e->getMessage());
@@ -160,8 +177,10 @@ class AppController extends BaseController
     {
         try {
             $sellerCount = User::where('role', 'seller')->count();
-            $brandCount = Brand::getTotalBrands();
-            $inventoryCount = Inventory::getTotalStock();
+            $brandCount = Brand::join('tbl_product_details', 'tbl_brand_details.product_id', '=', 'tbl_product_details.id')
+                ->where('tbl_product_details.delete_status', '0')
+                ->count();
+            $inventoryCount = Product::where('delete_status', '0')->count();
 
             return view('admin.admin_dashboard', compact('sellerCount', 'brandCount', 'inventoryCount'));
         } catch (\Exception $e) {
@@ -188,9 +207,35 @@ class AppController extends BaseController
         ]);
 
         try {
-            $productModel->saveFullProduct($validated);
+            DB::beginTransaction();
+            $product = Product::create([
+                'user_id' => Auth::id(),
+                'product_name' => $validated['product_name'],
+                'product_description' => $validated['product_description'] ?? null,
+            ]);
+
+            if (isset($validated['brand_name'])) {
+                foreach ($validated['brand_name'] as $key => $name) {
+                    $imagePath = null;
+                    if (isset($request->file('brand_image')[$key])) {
+                        $file = $request->file('brand_image')[$key];
+                        $fileName = time() . "_brand_" . $key . "." . $file->getClientOriginalExtension();
+                        $file->move(public_path('brand_images'), $fileName);
+                        $imagePath = 'brand_images/' . $fileName;
+                    }
+
+                    $product->brands()->create([
+                        'brand_name' => $name,
+                        'price'      => $validated['price'][$key],
+                        'detail'     => $validated['detail'][$key] ?? null,
+                        'brand_image'=> $imagePath,
+                    ]);
+                }
+            }
+            DB::commit();
             return response()->json(['status' => 'success', 'message' => 'Saved successfully!']);
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
@@ -198,7 +243,26 @@ class AppController extends BaseController
     public function productList()
     {
         try {
-            $products = Product::getProductListForUser();
+            $products = Product::leftJoin('tbl_brand_details', 'tbl_product_details.id', '=', 'tbl_brand_details.product_id')
+                ->where('tbl_product_details.user_id', Auth::id())
+                ->where('tbl_product_details.delete_status', '0') 
+                ->select([
+                    'tbl_product_details.id', 
+                    'tbl_product_details.product_name', 
+                    'tbl_product_details.product_description', 
+                    'tbl_product_details.created_at',
+                    DB::raw('MAX(tbl_brand_details.brand_image) as product_image'),
+                    DB::raw('COUNT(tbl_brand_details.id) as brands_count')
+                ])
+                ->groupBy(
+                    'tbl_product_details.id', 
+                    'tbl_product_details.product_name', 
+                    'tbl_product_details.product_description', 
+                    'tbl_product_details.created_at'
+                )
+                ->orderBy('tbl_product_details.id', 'desc')
+                ->get();
+
             return response()->json(['data' => $products]);
         } catch (\Exception $e) {
             \Log::error("Product List Error: " . $e->getMessage());
@@ -209,7 +273,13 @@ class AppController extends BaseController
     public function getProductBrands($id)
     {
         try {
-            $brands = Product::getBrandsByProductId($id);
+            $brands = Brand::join('tbl_product_details', 'tbl_brand_details.product_id', '=', 'tbl_product_details.id')
+                ->where('tbl_brand_details.product_id', $id)
+                ->where('tbl_product_details.user_id', Auth::id()) 
+                ->where('tbl_product_details.delete_status', '0') 
+                ->select('tbl_brand_details.*')
+                ->get();
+
             return response()->json($brands);
         } catch (\Exception $e) {
             \Log::error("Get Product Brands Error: " . $e->getMessage());
@@ -220,8 +290,11 @@ class AppController extends BaseController
     public function deleteProduct($id)
     {
         try {
-            $status = Product::deleteUserProduct($id);
-            return $status 
+            $updated = Product::where('id', $id)
+                ->where('user_id', Auth::id())
+                ->update(['delete_status' => '1']);
+
+            return $updated 
                 ? response()->json(['message' => 'Deleted']) 
                 : response()->json(['status' => 'error', 'message' => 'Unauthorized or Not Found'], 403);
         } catch (\Exception $e) {
