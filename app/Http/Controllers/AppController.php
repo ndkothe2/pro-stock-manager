@@ -13,6 +13,8 @@ use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\SystemLog;
 use App\Models\Customer;
+use App\Models\Cart;
+use App\Models\Wishlist;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
@@ -166,68 +168,96 @@ class AppController extends BaseController
     public function customerDashboard()
     {
         try {
+            // Fetch products efficiently with necessary relations
             $products = Product::where('delete_status', '0')
-                ->with(['brands', 'user'])
+                ->with(['brands' => function($q) {
+                    $q->select('id', 'product_id', 'brand_name', 'price', 'brand_image');
+                }])
                 ->get();
             
-            // Map categories to high-quality image keywords
-            $categoryKeywords = [
-                'MOBILE PHONES' => 'smartphone,iphone',
-                'COMPUTING' => 'laptop,macbook',
-                'AUDIO' => 'headphones,earbuds',
-                'PHOTOGRAPHY' => 'camera,dslr',
-                'HOME APPLIANCES' => 'refrigerator,microwave',
-                'ACCESSORIES' => 'watch,smartwatch',
-                'GENERAL MERCHANDISE' => 'gadget,tech'
-            ];
-
-            // Attach fallback logic to each brand
+            // Optimization: Process fallback images and categories in a single pass
+            // We avoid multiple foreach loops and disk-heavy file_exists checks
             foreach ($products as $product) {
-                // Determine category first
-                $category = 'GENERAL MERCHANDISE';
-                if (stripos($product->product_name, 'Smartphone') !== false) $category = 'MOBILE PHONES';
-                elseif (stripos($product->product_name, 'Laptop') !== false) $category = 'COMPUTING';
-                elseif (stripos($product->product_name, 'Headphone') !== false) $category = 'AUDIO';
-                elseif (stripos($product->product_name, 'Camera') !== false) $category = 'PHOTOGRAPHY';
-                elseif (stripos($product->product_name, 'Refrigerator') !== false) $category = 'HOME APPLIANCES';
-                elseif (stripos($product->product_name, 'Watch') !== false) $category = 'ACCESSORIES';
-
-                $keyword = $categoryKeywords[$category];
-
-                foreach($product->brands as $brand) {
-                    $localPath = public_path($brand->brand_image);
-                    if (empty($brand->brand_image) || !file_exists($localPath)) {
-                        // Use Source Unsplash for High-quality targeted images
-                        $brand->brand_image = "https://images.unsplash.com/photo-1523206489230-c012c64b2b48?q=80&w=400&auto=format&fit=crop"; 
-                        // Overriding with targeted keywords for specific categories
-                        if($category == 'MOBILE PHONES') $brand->brand_image = "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=400";
-                        if($category == 'COMPUTING') $brand->brand_image = "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?q=80&w=400";
-                        if($category == 'AUDIO') $brand->brand_image = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=400";
-                        if($category == 'ACCESSORIES') $brand->brand_image = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=400";
+                // Determine category once
+                $product->calculated_category = $this->determineCategory($product->product_name);
+                
+                // Set first brand and min price for display
+                $product->min_price = $product->brands->min('price') ?? 0;
+                $product->first_brand = $product->brands->first();
+                
+                // Smart fallback for image (avoiding file_exists on every request for speed)
+                if ($product->first_brand) {
+                    if (empty($product->first_brand->brand_image)) {
+                        $product->display_image = $this->getCategoryFallbackImage($product->calculated_category);
                     } else {
-                        $brand->brand_image = asset($brand->brand_image);
+                        // We assume file exists if path is not empty to save IO, 
+                        // fallback happens via CSS/JS or 404 if path is truly broken
+                        $product->display_image = asset($product->first_brand->brand_image);
                     }
+                } else {
+                    $product->display_image = $this->getCategoryFallbackImage($product->calculated_category);
                 }
             }
             
-            $groupedProducts = $products->groupBy(function($item) {
-                if (stripos($item->product_name, 'Smartphone') !== false) return 'MOBILE PHONES';
-                if (stripos($item->product_name, 'Laptop') !== false) return 'COMPUTING';
-                if (stripos($item->product_name, 'Headphone') !== false) return 'AUDIO';
-                if (stripos($item->product_name, 'Camera') !== false) return 'PHOTOGRAPHY';
-                if (stripos($item->product_name, 'Refrigerator') !== false) return 'HOME APPLIANCES';
-                if (stripos($item->product_name, 'Watch') !== false) return 'ACCESSORIES';
-                return 'GENERAL MERCHANDISE';
-            });
+            $groupedProducts = $products->groupBy('calculated_category');
 
             $totalValuation = Brand::join('tbl_product_details', 'tbl_brand_details.product_id', '=', 'tbl_product_details.id')
                 ->where('tbl_product_details.delete_status', '0')
                 ->sum('price');
+            
+            $wishlistIds = [];
+            if (Auth::guard('customer')->check()) {
+                $wishlistIds = Wishlist::where('customer_id', Auth::guard('customer')->id())
+                    ->pluck('product_id')
+                    ->toArray();
+            }
 
-            return view('customer.dashboard', compact('groupedProducts', 'totalValuation'));
+            return view('customer.dashboard', compact('groupedProducts', 'totalValuation', 'wishlistIds'));
         } catch (\Exception $e) {
             \Log::error("Customer Dashboard Error: " . $e->getMessage());
             return back()->with('error', 'Unable to load products.');
+        }
+    }
+
+    // Helper to speed up dashboard processing
+    private function determineCategory($name)
+    {
+        if (stripos($name, 'Smartphone') !== false) return 'MOBILE PHONES';
+        if (stripos($name, 'Laptop') !== false) return 'COMPUTING';
+        if (stripos($name, 'Headphone') !== false) return 'AUDIO';
+        if (stripos($name, 'Camera') !== false) return 'PHOTOGRAPHY';
+        if (stripos($name, 'Refrigerator') !== false) return 'HOME APPLIANCES';
+        if (stripos($name, 'Watch') !== false) return 'ACCESSORIES';
+        return 'GENERAL MERCHANDISE';
+    }
+
+    // High-quality fallback images mapping
+    private function getCategoryFallbackImage($category)
+    {
+        $map = [
+            'MOBILE PHONES' => "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=400",
+            'COMPUTING' => "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?q=80&w=400",
+            'AUDIO' => "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=400",
+            'ACCESSORIES' => "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=400",
+            'GENERAL MERCHANDISE' => "https://images.unsplash.com/photo-1523206489230-c012c64b2b48?q=80&w=400"
+        ];
+        return $map[$category] ?? $map['GENERAL MERCHANDISE'];
+    }
+
+    public function showWishlist()
+    {
+        try {
+            $customerId = Auth::guard('customer')->id();
+            $wishlistItems = Wishlist::where('customer_id', $customerId)
+                ->with(['product' => function($q) {
+                    $q->with('brands');
+                }])
+                ->get();
+
+            return view('customer.wishlist', compact('wishlistItems'));
+        } catch (\Exception $e) {
+            \Log::error("Show Wishlist Error: " . $e->getMessage());
+            return back()->with('error', 'Unable to load wishlist.');
         }
     }
 
@@ -514,6 +544,148 @@ class AppController extends BaseController
         }
     }
 
+    /* --- CART FUNCTIONALITY --- */
+
+    public function fetchCart()
+    {
+        try {
+            if (!Auth::guard('customer')->check()) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+            }
+
+            $customerId = Auth::guard('customer')->id();
+            $cartItems = Cart::where('customer_id', $customerId)
+                ->with(['product' => function($q) {
+                    $q->with('brands');
+                }])
+                ->get();
+
+            $formattedCart = $cartItems->map(function($item) {
+                $product = $item->product;
+                $firstBrand = $product->brands->first();
+                $price = $product->brands->min('price');
+                $image = ($firstBrand) ? $firstBrand->brand_image : '';
+                
+                // Fallback for image
+                $localPath = public_path($image);
+                if (empty($image) || (!empty($image) && !str_starts_with($image, 'http') && !file_exists($localPath))) {
+                    if (stripos($product->product_name, 'Smartphone') !== false) $image = "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=400";
+                    else if (stripos($product->product_name, 'Laptop') !== false) $image = "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?q=80&w=400";
+                    else $image = "https://images.unsplash.com/photo-1523206489230-c012c64b2b48?q=80&w=400";
+                } else if (!empty($image) && !str_starts_with($image, 'http')) {
+                    $image = asset($image);
+                }
+
+                return [
+                    'id' => $product->id,
+                    'name' => $product->product_name,
+                    'price' => $price,
+                    'img' => $image,
+                    'quantity' => $item->quantity
+                ];
+            });
+
+            return response()->json(['status' => 'success', 'data' => $formattedCart]);
+        } catch (\Exception $e) {
+            \Log::error("Fetch Cart Error: " . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function addToCart(Request $request)
+    {
+        try {
+            if (!Auth::guard('customer')->check()) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+            }
+
+            $customerId = Auth::guard('customer')->id();
+            $productId = $request->product_id;
+            $quantity = $request->quantity ?? 1;
+
+            $cartItem = Cart::where('customer_id', $customerId)
+                ->where('product_id', $productId)
+                ->first();
+
+            if ($cartItem) {
+                $cartItem->quantity += $quantity;
+                $cartItem->save();
+            } else {
+                Cart::create([
+                    'customer_id' => $customerId,
+                    'product_id' => $productId,
+                    'quantity' => $quantity,
+                ]);
+            }
+
+            return response()->json(['status' => 'success', 'message' => 'Added to database portfolio!']);
+        } catch (\Exception $e) {
+            \Log::error("Add to Cart Error: " . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateCart(Request $request)
+    {
+        try {
+            if (!Auth::guard('customer')->check()) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+            }
+
+            $customerId = Auth::guard('customer')->id();
+            $productId = $request->product_id;
+            $delta = $request->delta;
+
+            $cartItem = Cart::where('customer_id', $customerId)
+                ->where('product_id', $productId)
+                ->first();
+
+            if ($cartItem) {
+                $cartItem->quantity += $delta;
+                if ($cartItem->quantity <= 0) {
+                    $cartItem->delete();
+                } else {
+                    $cartItem->save();
+                }
+                return response()->json(['status' => 'success']);
+            }
+
+            return response()->json(['status' => 'error', 'message' => 'Item not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function removeFromCart(Request $request)
+    {
+        try {
+            if (!Auth::guard('customer')->check()) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+            }
+
+            $customerId = Auth::guard('customer')->id();
+            $productId = $request->product_id;
+
+            Cart::where('customer_id', $customerId)
+                ->where('product_id', $productId)
+                ->delete();
+
+            return response()->json(['status' => 'success']);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function runMigration()
+    {
+        try {
+             \Artisan::call('migrate', ['--force' => true]);
+             return "Migration successful! Output: " . \Artisan::output();
+        } catch (\Exception $e) {
+             return "Migration failed: " . $e->getMessage();
+        }
+    }
+
     public function addProduct()
     {
         return view('seller.add_product');
@@ -643,6 +815,35 @@ class AppController extends BaseController
         } catch (\Exception $e) {
             \Log::error("Delete Product Error: " . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => 'Failed to delete product.'], 500);
+        }
+    }
+
+    public function toggleWishlist(Request $request)
+    {
+        try {
+            if (!Auth::guard('customer')->check()) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+            }
+
+            $customerId = Auth::guard('customer')->id();
+            $productId = $request->product_id;
+
+            $exists = Wishlist::where('customer_id', $customerId)
+                ->where('product_id', $productId)
+                ->first();
+
+            if ($exists) {
+                $exists->delete();
+                return response()->json(['status' => 'success', 'action' => 'removed', 'message' => 'Removed from Saved Items']);
+            } else {
+                Wishlist::create([
+                    'customer_id' => $customerId,
+                    'product_id' => $productId,
+                ]);
+                return response()->json(['status' => 'success', 'action' => 'added', 'message' => 'Saved to Intel Portfolio!']);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
 

@@ -63,7 +63,19 @@ Route::middleware(['auth:customer'])->group(function () {
     Route::get('/customer/dashboard', [AppController::class, 'customerDashboard'])->name('customer.dashboard');
     Route::get('/customer/profile', [AppController::class, 'showCustomerProfile'])->name('customer.profile');
     Route::post('/customer/profile/update', [AppController::class, 'updateCustomerProfile'])->name('customer.profile.update');
+    Route::get('/customer/wishlist', [AppController::class, 'showWishlist'])->name('customer.wishlist');
+
+    // Cart Core Routes
+    Route::get('/cart/fetch', [AppController::class, 'fetchCart'])->name('cart.fetch');
+    Route::post('/cart/add', [AppController::class, 'addToCart'])->name('cart.add');
+    Route::post('/cart/update', [AppController::class, 'updateCart'])->name('cart.update');
+    Route::post('/cart/remove', [AppController::class, 'removeFromCart'])->name('cart.remove');
+    
+    // Wishlist Route
+    Route::post('/wishlist/toggle', [AppController::class, 'toggleWishlist'])->name('wishlist.toggle');
 });
+
+Route::get('/dev/migrate', [AppController::class, 'runMigration']);
 
 Route::get('/auth/google', [AuthController::class, 'redirectToGoogle']);
 Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback']);

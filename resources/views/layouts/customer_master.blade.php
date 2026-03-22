@@ -39,9 +39,9 @@
         .avatar-box img { width: 100%; height: 100%; object-fit: cover; }
 
         /* Portfolio Drawer */
-        .portfolio-drawer { position: fixed; top: 0; right: -450px; width: 450px; height: 100vh; background: white; z-index: 2100; box-shadow: -20px 0 60px rgba(0,0,0,0.15); transition: 0.6s cubic-bezier(0.165, 0.84, 0.44, 1); display: flex; flex-direction: column; border-left: 1px solid #F1F5F9; }
+        .portfolio-drawer { position: fixed; top: 0; right: -450px; width: 450px; height: 100vh; background: white; z-index: 1050; box-shadow: -20px 0 60px rgba(0,0,0,0.1); transition: 0.6s cubic-bezier(0.165, 0.84, 0.44, 1); display: flex; flex-direction: column; border-left: 1px solid #F1F5F9; }
         .portfolio-drawer.open { right: 0; }
-        .drawer-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(8px); z-index: 2050; display: none; opacity: 0; transition: 0.4s; }
+        .drawer-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(8px); z-index: 1040; display: none; opacity: 0; transition: 0.4s; }
         .drawer-overlay.visible { display: block; opacity: 1; }
         .drawer-body { flex: 1; overflow-y: auto; padding: 0 40px; }
         .portfolio-item { display: flex; gap: 18px; padding: 25px 0; border-bottom: 1px solid #F1F5F9; align-items: center; animation: slideInItem 0.4s ease-out; }
@@ -84,6 +84,13 @@
         .logout-item { color: #EF4444 !important; border-top: 1px solid #F1F5F9; margin-top: 5px; padding-top: 18px; }
         .logout-item i { color: #EF4444 !important; }
         .logout-item:hover { background: #FEF2F2 !important; }
+
+        @keyframes pulse-cart {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); color: var(--primary); }
+            100% { transform: scale(1); }
+        }
+        .pulse-cart { animation: pulse-cart 0.5s ease-in-out; }
     </style>
 </head>
 <body>
@@ -98,10 +105,16 @@
             <button onclick="togglePortfolio()" style="background: #F1F5F9; border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #64748B; cursor: pointer;"><i class="fas fa-times"></i></button>
         </div>
         <div class="drawer-body" id="portfolioItems"></div>
-        <button class="acquire-btn">
-            <span>FINALIZE ACQUISITION</span>
-            <span id="drawerTotal" style="background: rgba(255,255,255,0.1); padding: 6px 14px; border-radius: 10px;">₹0.00</span>
-        </button>
+        <div style="padding: 30px 40px; border-top: 1px solid #F1F5F9; background: #F8FAFC;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                <div style="font-size: 14px; color: #64748B; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Estimated Value</div>
+                <div id="drawerTotal" style="font-size: 24px; font-weight: 900; color: #0F172A;">₹0.00</div>
+            </div>
+            <button class="acquire-btn" style="width: 100%; border-radius: 16px; padding: 20px; box-shadow: 0 10px 20px rgba(17, 24, 39, 0.15);" onclick="proceedToPayment()">
+                <span>PROCEED TO CHECKOUT</span>
+                <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
     </div>
 
     <aside class="sidebar">
@@ -112,7 +125,7 @@
         <nav class="sidebar-nav">
             <a href="{{ route('customer.dashboard') }}" class="nav-item {{ Request::is('customer/dashboard*') ? 'active' : '' }}"><i class="fas fa-compass"></i> Explore Items</a>
             <a href="#" class="nav-item"><i class="fas fa-layer-group"></i> My Orders</a>
-            <a href="#" class="nav-item"><i class="fas fa-heart"></i> Saved Items</a>
+            <a href="{{ route('customer.wishlist') }}" class="nav-item {{ Request::is('customer/wishlist*') ? 'active' : '' }}"><i class="fas fa-heart"></i> Saved Items</a>
             <a href="{{ route('customer.profile') }}" class="nav-item {{ Request::is('customer/profile*') ? 'active' : '' }}"><i class="fas fa-user-circle"></i> Account Setting</a>
         </nav>
         <div class="sidebar-footer">
@@ -197,17 +210,202 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         let portfolio = [];
-        function togglePortfolio() { const drawer = document.getElementById('portfolioDrawer'); const overlay = document.getElementById('drawerOverlay'); drawer.classList.toggle('open'); overlay.classList.toggle('visible'); if (drawer.classList.contains('open')) renderPortfolio(); }
-        window.addToPortfolioHub = function(id, name, price, img) { portfolio.push({ id, name, price, img }); updateHeaderCount(); renderPortfolio(); };
-        function updateHeaderCount() { $('#cartCount').text(portfolio.length); $('#drawerCount').text(`${portfolio.length} Assets Tracked`); }
+
+        // Dynamic Database Sync
+        $(document).ready(function() {
+            fetchCartFromDb();
+        });
+
+        function fetchCartFromDb() {
+            $.ajax({
+                url: "{{ route('cart.fetch') }}",
+                type: 'GET',
+                success: function(res) {
+                    if(res.status === 'success') {
+                        portfolio = res.data;
+                        updateHeaderCount();
+                        renderPortfolio();
+                    }
+                },
+                error: function(xhr) { console.error("Identity extraction failed from secure vault."); }
+            });
+        }
+
+        function togglePortfolio() { 
+            const drawer = document.getElementById('portfolioDrawer'); 
+            const overlay = document.getElementById('drawerOverlay'); 
+            drawer.classList.toggle('open'); 
+            overlay.classList.toggle('visible'); 
+            if (drawer.classList.contains('open')) renderPortfolio(); 
+        }
+
+        window.addToPortfolioHub = function(id, name, price, img) { 
+            // Optimistic UI Update
+            const existingItem = portfolio.find(item => item.id == id);
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                portfolio.push({ id, name, price, img, quantity: 1 });
+            }
+            updateHeaderCount(); 
+            renderPortfolio(); 
+            
+            // Pulse animation for cart icon
+            $('.cart-icon-wrapper').addClass('pulse-cart');
+            setTimeout(() => $('.cart-icon-wrapper').removeClass('pulse-cart'), 500);
+
+            // Database Sync
+            $.ajax({
+                url: "{{ route('cart.add') }}",
+                type: 'POST',
+                data: {
+                    product_id: id,
+                    quantity: 1,
+                    _token: "{{ csrf_token() }}"
+                },
+                success: function(res) {
+                    // Success silently synced
+                },
+                error: function() {
+                    Swal.fire({ icon: 'error', title: 'Authorization Error', text: 'Failed to sync with secure vault.' });
+                }
+            });
+        };
+
+        function updateHeaderCount() { 
+            const uniqueAssets = portfolio.length;
+            const totalQuantity = portfolio.reduce((sum, item) => sum + parseInt(item.quantity), 0);
+            
+            $('#cartCount').text(uniqueAssets); 
+            $('#drawerCount').text(`${uniqueAssets} Assets in Portfolio`); 
+        }
+
         function renderPortfolio() {
             const container = $('#portfolioItems');
-            if (portfolio.length === 0) { container.html('<div style="text-align: center; padding-top: 50%; color: #94A3B8;"><i class="fas fa-shopping-basket" style="font-size: 48px; margin-bottom: 25px; opacity: 0.3;"></i><p style="font-weight: 600; font-size: 15px;">Your digital portfolio is empty.</p></div>'); $('#drawerTotal').text('₹0.00'); return; }
+            const checkoutBtn = $('.acquire-btn');
+            
+            if (portfolio.length === 0) { 
+                container.html('<div style="text-align: center; padding-top: 50%; color: #94A3B8;"><i class="fas fa-shopping-basket" style="font-size: 48px; margin-bottom: 25px; opacity: 0.3;"></i><p style="font-weight: 600; font-size: 15px;">Your digital portfolio is empty.</p></div>'); 
+                $('#drawerTotal').text('₹0.00'); 
+                checkoutBtn.attr('disabled', true).css({'opacity': '0.3', 'cursor': 'not-allowed', 'background': '#94A3B8'});
+                return; 
+            } else {
+                checkoutBtn.attr('disabled', false).css({'opacity': '1', 'cursor': 'pointer', 'background': '#111827'});
+            }
+            
             let html = '', total = 0;
-            portfolio.forEach((item, index) => { total += parseFloat(item.price); html += `<div class="portfolio-item"><img src="${item.img}"><div style="flex:1;"><div style="font-weight: 800; font-size:14px; color:#0F172A; margin-bottom:4px;">${item.name}</div><div style="font-size:13px; font-weight:700; color:var(--primary); letter-spacing: 0.5px;">₹${parseFloat(item.price).toLocaleString()}</div></div><button onclick="removeFromPortfolio(${index})" style="background:#F1F5F9; border:none; width:32px; height:32px; border-radius:8px; color:#EF4444; cursor:pointer;"><i class="fas fa-trash-alt"></i></button></div>`; });
-            container.html(html); $('#drawerTotal').text(`₹${total.toLocaleString()}`);
+            portfolio.forEach((item, index) => { 
+                const itemTotal = parseFloat(item.price) * item.quantity;
+                total += itemTotal; 
+                html += `
+                <div class="portfolio-item">
+                    <img src="${item.img}">
+                    <div style="flex:1;">
+                        <div style="font-weight: 800; font-size:14px; color:#0F172A; margin-bottom:4px;">${item.name}</div>
+                        <div style="font-size:13px; font-weight:700; color:var(--primary); letter-spacing: 0.5px; margin-bottom: 10px;">₹${parseFloat(item.price).toLocaleString()}</div>
+                        <div style="display: flex; align-items: center; gap: 12px; background: #F8FAFC; width: fit-content; padding: 4px 8px; border-radius: 8px; border: 1px solid #E2E8F0;">
+                            <button onclick="updateQuantity(${index}, -1)" style="border:none; background:none; color:#64748B; cursor:pointer;"><i class="fas fa-minus" style="font-size: 10px;"></i></button>
+                            <span style="font-size: 13px; font-weight: 800; min-width: 20px; text-align: center;">${item.quantity}</span>
+                            <button onclick="updateQuantity(${index}, 1)" style="border:none; background:none; color:var(--primary); cursor:pointer;"><i class="fas fa-plus" style="font-size: 10px;"></i></button>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 14px; font-weight: 800; color: #1e293b; margin-bottom: 5px;">₹${itemTotal.toLocaleString()}</div>
+                        <button onclick="removeFromPortfolio(${index})" style="background:none; border:none; color:#EF4444; cursor:pointer; font-size: 14px; opacity: 0.5; transition: 0.3s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                </div>`; 
+            });
+            container.html(html); 
+            $('#drawerTotal').text(`₹${total.toLocaleString()}`);
         }
-        window.removeFromPortfolio = function(index) { portfolio.splice(index, 1); updateHeaderCount(); renderPortfolio(); };
+
+        window.updateQuantity = function(index, delta) {
+            const item = portfolio[index];
+            item.quantity += delta;
+            
+            if (item.quantity <= 0) {
+                removeFromPortfolio(index);
+            } else {
+                updateHeaderCount();
+                renderPortfolio();
+                
+                // Database Sync
+                $.ajax({
+                    url: "{{ route('cart.update') }}",
+                    type: 'POST',
+                    data: {
+                        product_id: item.id,
+                        delta: delta,
+                        _token: "{{ csrf_token() }}"
+                    }
+                });
+            }
+        };
+
+        window.removeFromPortfolio = function(index) { 
+            const productId = portfolio[index].id;
+            portfolio.splice(index, 1); 
+            updateHeaderCount(); 
+            renderPortfolio(); 
+            
+            // Database Sync
+            $.ajax({
+                url: "{{ route('cart.remove') }}",
+                type: 'POST',
+                data: {
+                    product_id: productId,
+                    _token: "{{ csrf_token() }}"
+                }
+            });
+        };
+
+        function proceedToPayment() {
+            if (portfolio.length === 0) {
+                Swal.fire({ icon: 'warning', title: 'Empty Portfolio', text: 'Please add items to your portfolio before proceeding to payment.' });
+                return;
+            }
+            
+            Swal.fire({
+                title: '<div style="font-weight:900; font-size:26px; color:#0F172A; letter-spacing:-1px;">Finalize Your Order</div>',
+                html: `
+                    <div style="text-align: center; padding: 10px 0;">
+                        <div style="background: #F8FAFC; border-radius: 20px; padding: 25px; border: 1px solid #E2E8F0; margin-bottom: 25px;">
+                            <div style="font-size: 11px; font-weight: 800; color: #94A3B8; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px;">Order Total</div>
+                            <div style="font-size: 34px; font-weight: 900; color: #111827;">${$('#drawerTotal').text()}</div>
+                            <div style="font-size: 13px; color: #64748B; margin-top: 5px; font-weight: 600;">Acquiring ${portfolio.length} products today</div>
+                        </div>
+                        
+                        <div style="font-size: 14px; font-weight: 600; color: #64748B; margin-bottom: 5px;">Secure checkout powered by ProStock Terminal</div>
+                    </div>
+                `,
+                iconHtml: '<div style="font-size: 40px; color: #6366F1;"><i class="fas fa-check-circle"></i></div>',
+                showCancelButton: true,
+                confirmButtonColor: '#6366F1',
+                cancelButtonColor: '#F1F5F9',
+                confirmButtonText: 'YES, PAY NOW',
+                cancelButtonText: 'NO, GO BACK',
+                padding: '40px',
+                background: '#ffffff',
+                borderRadius: '32px',
+                customClass: {
+                    container: 'swal-top-layer',
+                    confirmButton: 'premium-confirm-btn',
+                    cancelButton: 'premium-cancel-btn'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    togglePortfolio();
+                    Swal.fire({
+                        title: 'Success!',
+                        text: 'Your payment has been successfully processed.',
+                        icon: 'success',
+                        confirmButtonColor: '#111827',
+                        background: '#ffffff',
+                        borderRadius: '24px'
+                    });
+                }
+            });
+        }
 
         // Dropdown Logic
         function toggleUserDropdown(event) {

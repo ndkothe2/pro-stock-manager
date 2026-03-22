@@ -64,16 +64,15 @@
                 @foreach($products as $product)
                 <div class="product-asset-card" style="background: white; border-radius: 24px; border: 1px solid #F3F4F6; box-shadow: var(--card-shadow); transition: 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); cursor: pointer; overflow: hidden; position: relative;"
                      @php
-                        $firstBrand = $product->brands->first();
-                        $price = $product->brands->min('price');
-                        $image = ($firstBrand) ? $firstBrand->brand_image : 'https://placehold.co/600x400/f1f5f9/64748b?text=' . urlencode($product->product_name);
+                        $price = $product->min_price;
+                        $image = $product->display_image;
                      @endphp
                      onclick="quickView('{{ $product->id }}', '{{ addslashes($product->product_name) }}', '{{ $price }}', '{{ $image }}', '{{ addslashes($product->product_description) }}')">
                     
                     <!-- Top Actions -->
                     <div style="position: absolute; top: 15px; right: 15px; z-index: 10;">
-                        <button class="icon-btn-glass" title="Add to Wishlist" onclick="event.stopPropagation(); toggleWishlist(this, '{{ addslashes($product->product_name) }}')">
-                            <i class="far fa-heart"></i>
+                        <button class="icon-btn-glass {{ in_array($product->id, $wishlistIds) ? 'active' : '' }}" title="Add to Wishlist" onclick="event.stopPropagation(); toggleWishlist(this, '{{ $product->id }}', '{{ addslashes($product->product_name) }}')">
+                            <i class="{{ in_array($product->id, $wishlistIds) ? 'fas' : 'far' }} fa-heart"></i>
                         </button>
                     </div>
 
@@ -181,13 +180,42 @@
         Toast.fire({ icon: 'success', title: `[${name}] Added to Portfolio!` });
     }
 
-    function toggleWishlist(btn, name) {
+    function toggleWishlist(btn, id, name) {
         $(btn).toggleClass('active');
         const icon = $(btn).find('i');
-        if ($(btn).hasClass('active')) {
+        const isActive = $(btn).hasClass('active');
+        
+        if (isActive) {
             icon.removeClass('far').addClass('fas');
-            Swal.fire({ toast: true, position: 'top-end', timer: 1500, showConfirmButton: false, icon: 'info', title: `[${name}] Saved to Intel` });
-        } else { icon.removeClass('fas').addClass('far'); }
+        } else {
+            icon.removeClass('fas').addClass('far');
+        }
+
+        $.ajax({
+            url: "{{ route('wishlist.toggle') }}",
+            type: 'POST',
+            data: {
+                product_id: id,
+                _token: "{{ csrf_token() }}"
+            },
+            success: function(res) {
+                const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500, timerProgressBar: true });
+                Toast.fire({ 
+                    icon: res.action === 'added' ? 'success' : 'info', 
+                    title: res.message 
+                });
+            },
+            error: function() {
+                // Revert UI if error
+                $(btn).toggleClass('active');
+                if ($(btn).hasClass('active')) {
+                    icon.removeClass('far').addClass('fas');
+                } else {
+                    icon.removeClass('fas').addClass('far');
+                }
+                Swal.fire({ icon: 'error', title: 'Connection Failure', text: 'Secure vault sync failed.' });
+            }
+        });
     }
 
     function quickView(id, name, price, img, desc) {
