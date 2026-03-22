@@ -917,4 +917,3 @@ class AppController extends BaseController
         }
     }
 }
-}
