@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AppController;
+use App\Http\Controllers\AuthController;
+
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -62,3 +64,6 @@ Route::middleware(['auth:customer'])->group(function () {
     Route::get('/customer/profile', [AppController::class, 'showCustomerProfile'])->name('customer.profile');
     Route::post('/customer/profile/update', [AppController::class, 'updateCustomerProfile'])->name('customer.profile.update');
 });
+
+Route::get('/auth/google', [AuthController::class, 'redirectToGoogle']);
+Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback']);

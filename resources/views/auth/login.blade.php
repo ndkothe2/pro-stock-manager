@@ -124,9 +124,58 @@
             margin-top: 10px;
         }
 
-        .btn-login:hover {
-            background: var(--primary-dark);
+        .btn-google {
+            width: 100%;
+            padding: 12px;
+            background: white;
+            color: #444;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: 'Laila', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        }
+
+        .btn-google:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
             transform: translateY(-1px);
+        }
+
+        .btn-google img {
+            width: 18px;
+            margin-right: 12px;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 20px 0;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .divider:not(:empty)::before {
+            margin-right: .5em;
+        }
+
+        .divider:not(:empty)::after {
+            margin-left: .5em;
         }
 
         .alert-error {
@@ -162,10 +211,10 @@
         <p>Sign in to your account</p>
     </div>
 
-    @if ($errors->any())
+    @if ($errors->any() || session('error'))
         <div class="alert-error">
             <i class="fas fa-circle-exclamation" style="margin-right: 10px;"></i>
-            {{ $errors->first() }}
+            {{ $errors->any() ? $errors->first() : session('error') }}
         </div>
     @endif
 
@@ -190,7 +239,15 @@
         </div>
 
         <button type="submit" class="btn-login">Sign In</button>
-        <div style="text-align: center; margin-top: 20px; font-size: 14px; color: var(--text-muted);">
+
+        <div class="divider">OR</div>
+
+        <a href="{{ url('/auth/google') }}" class="btn-google">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Logo">
+            Sign in with Google
+        </a>
+
+        <div style="text-align: center; margin-top: 25px; font-size: 14px; color: var(--text-muted);">
             Don't have an account? <a href="{{ route('register') }}" style="color: var(--primary); text-decoration: none; font-weight: 700;">Join as Customer</a>
         </div>
     </form>

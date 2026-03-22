@@ -35,7 +35,8 @@
         .main-content { margin-left: var(--sidebar-width); flex: 1; display: flex; flex-direction: column; min-width: 0; }
         .top-navbar { background: rgba(255,255,255,0.85); backdrop-filter: blur(10px); padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 900; border-bottom: 1px solid #E2E8F0; height: 80px; }
         .status-badge { display: flex; align-items: center; gap: 8px; background: #F0FDF4; color: #166534; padding: 6px 14px; border-radius: 50px; font-size: 11px; font-weight: 700; border: 1px solid #DCFCE7; }
-        .avatar-box { width: 42px; height: 42px; background: #F1F5F9; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #475569; position: relative; border: 1px solid #E2E8F0; }
+        .avatar-box { width: 42px; height: 42px; background: #F1F5F9; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #475569; position: relative; border: 1px solid #E2E8F0; overflow: hidden; }
+        .avatar-box img { width: 100%; height: 100%; object-fit: cover; }
 
         /* Portfolio Drawer */
         .portfolio-drawer { position: fixed; top: 0; right: -450px; width: 450px; height: 100vh; background: white; z-index: 2100; box-shadow: -20px 0 60px rgba(0,0,0,0.15); transition: 0.6s cubic-bezier(0.165, 0.84, 0.44, 1); display: flex; flex-direction: column; border-left: 1px solid #F1F5F9; }
@@ -118,8 +119,19 @@
                         <div style="font-weight: 700; font-size: 14px;">{{ Auth::guard('customer')->user()->name }}</div>
                         <div style="font-size: 10px; color: #94A3B8; text-transform: uppercase; font-weight: 800;">Authorized Client</div>
                     </div>
-                    @php $parts = explode(' ', Auth::guard('customer')->user()->name); $initials = strtoupper(substr($parts[0], 0, 1) . (isset($parts[1]) ? substr($parts[1], 0, 1) : '')); @endphp
-                    <div class="avatar-box">{{ $initials }}<div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #22c55e; border-radius: 50%; border: 2px solid white;"></div></div>
+                    @php 
+                        $user = Auth::guard('customer')->user();
+                        $parts = explode(' ', $user->name); 
+                        $initials = strtoupper(substr($parts[0], 0, 1) . (isset($parts[1]) ? substr($parts[1], 0, 1) : '')); 
+                    @endphp
+                    <div class="avatar-box">
+                        @if($user->avatar)
+                            <img src="{{ $user->avatar }}" alt="{{ $user->name }}">
+                        @else
+                            {{ $initials }}
+                        @endif
+                        <div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #22c55e; border-radius: 50%; border: 2px solid white;"></div>
+                    </div>
                 </div>
             </div>
         </header>
