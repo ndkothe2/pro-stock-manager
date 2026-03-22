@@ -119,19 +119,23 @@
             
             <div style="display: flex; flex-direction: column; gap: 15px;">
                 <div style="background: white; border: 1px solid #F3F4F6; padding: 25px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; gap: 30px; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 250px;">
+                    <div style="flex: 1; min-width: 100%;">
                         <h4 style="margin:0; font-size: 15px; font-weight: 700; color: #111827;">Temporarily Disable Account</h4>
                         <p style="margin:6px 0 0; font-size: 13px; color: #64748b; line-height: 1.5;">Your profile will go offline. You can return by signing in anytime.</p>
                     </div>
-                    <button class="action-btn disable-btn" onclick="confirmDeactivate()">Disable Node</button>
+                    <div style="width: 100%; text-align: right;">
+                        <button type="button" class="action-btn disable-btn" onclick="confirmDeactivate()">Disable Node</button>
+                    </div>
                 </div>
                 
                 <div style="background: #FFF5F5; border: 1px solid #FED7D7; padding: 25px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; gap: 30px; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 250px;">
+                    <div style="flex: 1; min-width: 100%;">
                         <h4 style="margin:0; font-size: 15px; font-weight: 700; color: #991B1B;">Permanently Delete Account</h4>
                         <p style="margin:6px 0 0; font-size: 13px; color: #B91C1C; line-height: 1.5;">This will purge all your data instantly. This action is irreversible.</p>
                     </div>
-                    <button class="action-btn delete-btn" onclick="confirmWipe()">Delete Account</button>
+                    <div style="width: 100%; text-align: right;">
+                        <button type="button" class="action-btn delete-btn" onclick="confirmWipe()">Delete Account</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -208,9 +212,31 @@
         border: none;
     }
     .delete-btn:hover { background: #991B1B; transform: translateY(-2px); }
+
+    /* Premium Swal Overrides */
+    .swal-premium-popup { border-radius: 32px !important; padding: 40px !important; }
+    .swal-premium-title { font-weight: 900 !important; font-size: 28px !important; color: #0F172A !important; letter-spacing: -1.2px !important; }
+    .swal-premium-confirm { 
+        background: #111827 !important; color: white !important; border-radius: 16px !important; padding: 16px 35px !important; font-weight: 800 !important; font-size: 13px !important; letter-spacing: 1px !important; border: none !important; transition: 0.3s !important; box-shadow: 0 10px 20px rgba(17, 24, 39, 0.2) !important; margin: 0 10px !important;
+    }
+    .swal-premium-confirm:hover { transform: translateY(-2px) !important; box-shadow: 0 15px 25px rgba(0,0,0,0.15) !important; }
+    .swal-premium-cancel { 
+        background: #F1F5F9 !important; color: #64748B !important; border-radius: 16px !important; padding: 16px 35px !important; font-weight: 800 !important; font-size: 13px !important; letter-spacing: 1px !important; border: none !important; transition: 0.3s !important; margin: 0 10px !important;
+    }
+    .swal-premium-cancel:hover { background: #E2E8F0 !important; color: #0F172A !important; }
+
+    /* Fix for button spacing in Swal */
+    .swal-premium-actions { 
+        display: flex !important; 
+        justify-content: center !important; 
+        gap: 15px !important; 
+        margin-top: 10px !important;
+        width: 100% !important;
+    }
 </style>
 
 @section('extra_js')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-bootstrap-4/bootstrap-4.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     function scrollToSection(id) {
@@ -220,10 +246,77 @@
         $(`button[onclick="scrollToSection('${id}')"]`).addClass('active');
     }
     function confirmDeactivate() {
-        Swal.fire({ title: 'Disable Account?', text: "Return anytime by logging in again.", icon: 'warning', showCancelButton: true, confirmButtonColor: '#020617', confirmButtonText: 'Yes, Disable' });
+        Swal.fire({
+            title: 'Turn Off Your Account?',
+            html: `
+                <div style="text-align: center; padding: 10px 0;">
+                    <div style="background: #F8FAFC; border-radius: 24px; padding: 30px; border: 1px solid #E2E8F0; margin-bottom: 30px; display: flex; align-items: center; gap: 24px; text-align: left; position: relative; overflow: hidden;">
+                        <div style="width: 70px; height: 70px; background: #EEF2FF; border-radius: 20px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-power-off" style="font-size: 30px; color: #4F46E5;"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 10px; font-weight: 800; color: #4F46E5; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">Account Settings</div>
+                            <div style="font-size: 18px; font-weight: 900; color: #0F172A; letter-spacing: -0.5px;">Temporary Break</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 15px; font-weight: 600; color: #475569; line-height: 1.6; max-width: 320px; margin: 0 auto;">Your profile will be hidden from everyone. You can return and re-enable it by logging in anytime.</div>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'YES, TURN OFF',
+            cancelButtonText: 'NO, GO BACK',
+            background: '#ffffff',
+            reverseButtons: true,
+            customClass: {
+                popup: 'swal-premium-popup',
+                title: 'swal-premium-title',
+                confirmButton: 'swal-premium-confirm',
+                cancelButton: 'swal-premium-cancel',
+                actions: 'swal-premium-actions'
+            },
+            buttonsStyling: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Node Deactivated', showConfirmButton: false, timer: 2000 });
+            }
+        });
     }
+
     function confirmWipe() {
-        Swal.fire({ title: 'Delete Permanently?', text: "Warning: All data will be erased forever.", icon: 'error', showCancelButton: true, confirmButtonColor: '#DC2626', confirmButtonText: 'Delete Forever' });
+        Swal.fire({
+            title: 'Delete Account Forever?',
+            html: `
+                <div style="text-align: center; padding: 10px 0;">
+                    <div style="background: #FFF5F5; border: 1px solid #FED7D7; border-radius: 24px; padding: 30px; margin-bottom: 30px; display: flex; align-items: center; gap: 24px; text-align: left; position: relative; overflow: hidden;">
+                        <div style="width: 70px; height: 70px; background: #FEF2F2; border-radius: 20px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-user-minus" style="font-size: 30px; color: #DC2626;"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 10px; font-weight: 800; color: #DC2626; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">Security Warning</div>
+                            <div style="font-size: 18px; font-weight: 900; color: #991B1B; letter-spacing: -0.5px;">Remove Everything</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 14px; font-weight: 600; color: #991B1B; line-height: 1.6; max-width: 340px; margin: 0 auto;">This will permanently erase your profile and all your data. You cannot undo this action.</div>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'YES, DELETE FOREVER',
+            cancelButtonText: 'NO, KEEP IT',
+            background: '#ffffff',
+            reverseButtons: true,
+            customClass: {
+                popup: 'swal-premium-popup',
+                title: 'swal-premium-title',
+                confirmButton: 'swal-premium-confirm',
+                cancelButton: 'swal-premium-cancel',
+                actions: 'swal-premium-actions'
+            },
+            buttonsStyling: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Account Erased', showConfirmButton: false, timer: 2000 });
+            }
+        });
     }
 </script>
 @endsection

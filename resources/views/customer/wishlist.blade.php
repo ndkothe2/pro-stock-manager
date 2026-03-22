@@ -139,23 +139,23 @@
         const itemImg = $(btn).closest('.wishlist-item-card').find('img').attr('src');
 
         Swal.fire({
-            title: 'Discard Portfolio Asset?',
+            title: 'Remove from Saved?',
             html: `
                 <div style="text-align: center; padding: 10px 0;">
                     <div style="background: #F8FAFC; border-radius: 24px; padding: 30px; border: 1px solid #E2E8F0; margin-bottom: 30px; display: flex; align-items: center; gap: 24px; text-align: left; position: relative; overflow: hidden;">
                         <div style="position: absolute; top: -20px; right: -20px; width: 60px; height: 60px; background: rgba(244, 63, 94, 0.05); border-radius: 50%;"></div>
                         <img src="${itemImg}" style="width: 80px; height: 80px; border-radius: 16px; object-fit: cover; box-shadow: 0 8px 15px rgba(0,0,0,0.08); position: relative; z-index: 2;">
                         <div style="position: relative; z-index: 2;">
-                            <div style="font-size: 10px; font-weight: 800; color: #f43f5e; text-transform: uppercase; letter-spacing: 2.5px; margin-bottom: 6px;">Active Watchlist</div>
+                            <div style="font-size: 10px; font-weight: 800; color: #f43f5e; text-transform: uppercase; letter-spacing: 2.5px; margin-bottom: 6px;">Saved for later</div>
                             <div style="font-size: 20px; font-weight: 900; color: #0F172A; letter-spacing: -0.5px;">${itemName}</div>
-                            <div style="font-size: 12px; color: #94A3B8; font-weight: 600; margin-top: 4px;">Ref ID: PSM-${id.padStart(5, '0')}</div>
+                            <div style="font-size: 12px; color: #94A3B8; font-weight: 600; margin-top: 4px;">Item ID: PSM-${id.padStart(5, '0')}</div>
                         </div>
                     </div>
-                    <div style="font-size: 15px; font-weight: 600; color: #475569; line-height: 1.6; max-width: 320px; margin: 0 auto;">Are you sure you want to remove this high-priority asset from your active watchlist?</div>
+                    <div style="font-size: 15px; font-weight: 600; color: #475569; line-height: 1.6; max-width: 320px; margin: 0 auto;">Are you sure you want to remove this item from your saved list?</div>
                 </div>
             `,
             showCancelButton: true,
-            confirmButtonText: 'YES, DISCARD',
+            confirmButtonText: 'YES, REMOVE',
             cancelButtonText: 'NO, KEEP IT',
             background: '#ffffff',
             reverseButtons: true,
