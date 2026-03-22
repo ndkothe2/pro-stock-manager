@@ -66,7 +66,7 @@
                      @php
                         $firstBrand = $product->brands->first();
                         $price = $product->brands->min('price');
-                        $image = ($firstBrand && $firstBrand->brand_image) ? asset($firstBrand->brand_image) : 'https://placehold.co/600x400/f1f5f9/64748b?text=' . urlencode($product->product_name);
+                        $image = ($firstBrand) ? $firstBrand->brand_image : 'https://placehold.co/600x400/f1f5f9/64748b?text=' . urlencode($product->product_name);
                      @endphp
                      onclick="quickView('{{ $product->id }}', '{{ addslashes($product->product_name) }}', '{{ $price }}', '{{ $image }}', '{{ addslashes($product->product_description) }}')">
                     

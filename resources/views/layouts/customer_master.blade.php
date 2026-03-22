@@ -64,6 +64,26 @@
         .social-icons { display: flex; gap: 15px; margin-top: 20px; }
         .social-icons a { width: 36px; height: 36px; background: #F1F5F9; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #64748B; transition: 0.3s; }
         .social-icons a:hover { background: var(--primary); color: white; transform: translateY(-3px); }
+
+        /* Profile Dropdown Styles (Restored to Simple Version) */
+        .profile-container { position: relative; cursor: pointer; }
+        .dropdown-menu { 
+            position: absolute; top: 60px; right: 0; width: 280px; 
+            background: white; border-radius: 20px; border: 1px solid #E2E8F0; 
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); 
+            display: none; flex-direction: column; z-index: 1000; 
+            animation: dropdownFade 0.3s ease-out; overflow: hidden;
+        }
+        @keyframes dropdownFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .dropdown-menu.show { display: flex; }
+        .dropdown-header { padding: 25px; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; display: flex; align-items: center; gap: 15px; }
+        .dropdown-item { padding: 14px 25px; display: flex; align-items: center; gap: 14px; text-decoration: none; color: #475569; font-size: 14px; font-weight: 700; transition: 0.2s; border: none; background: none; width: 100%; text-align: left; cursor: pointer; }
+        .dropdown-item i { width: 20px; color: #94A3B8; font-size: 16px; transition: 0.2s; }
+        .dropdown-item:hover { background: #F8FAFC; color: var(--primary); }
+        .dropdown-item:hover i { color: var(--primary); transform: scale(1.1); }
+        .logout-item { color: #EF4444 !important; border-top: 1px solid #F1F5F9; margin-top: 5px; padding-top: 18px; }
+        .logout-item i { color: #EF4444 !important; }
+        .logout-item:hover { background: #FEF2F2 !important; }
     </style>
 </head>
 <body>
@@ -114,23 +134,56 @@
                     <span id="cartCount" class="cart-badge">0</span>
                 </div>
                 <div style="width: 1px; height: 30px; background: #E2E8F0;"></div>
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="text-align: right;">
-                        <div style="font-weight: 700; font-size: 14px;">{{ Auth::guard('customer')->user()->name }}</div>
-                        <div style="font-size: 10px; color: #94A3B8; text-transform: uppercase; font-weight: 800;">Authorized Client</div>
+                
+                @php 
+                    $user = Auth::guard('customer')->user();
+                    $parts = explode(' ', $user->name); 
+                    $initials = strtoupper(substr($parts[0], 0, 1) . (isset($parts[1]) ? substr($parts[1], 0, 1) : '')); 
+                @endphp
+
+                <div class="profile-container" id="profileTrigger" onclick="toggleUserDropdown(event)">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="text-align: right;">
+                            <div style="font-weight: 700; font-size: 14px;">{{ $user->name }}</div>
+                            <div style="font-size: 10px; color: #94A3B8; text-transform: uppercase; font-weight: 800;">Authorized Client</div>
+                        </div>
+                        <div class="avatar-box">
+                            @if($user->avatar)
+                                <img src="{{ $user->avatar }}" alt="{{ $user->name }}">
+                            @else
+                                {{ $initials }}
+                            @endif
+                            <div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #22c55e; border-radius: 50%; border: 2px solid white;"></div>
+                        </div>
                     </div>
-                    @php 
-                        $user = Auth::guard('customer')->user();
-                        $parts = explode(' ', $user->name); 
-                        $initials = strtoupper(substr($parts[0], 0, 1) . (isset($parts[1]) ? substr($parts[1], 0, 1) : '')); 
-                    @endphp
-                    <div class="avatar-box">
-                        @if($user->avatar)
-                            <img src="{{ $user->avatar }}" alt="{{ $user->name }}">
-                        @else
-                            {{ $initials }}
-                        @endif
-                        <div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #22c55e; border-radius: 50%; border: 2px solid white;"></div>
+
+                    <!-- Reverted Dropdown Menu (Simple Version) -->
+                    <div class="dropdown-menu" id="userDropdown">
+                        <div class="dropdown-header">
+                            <div class="avatar-box" style="width: 50px; height: 50px; flex-shrink: 0;">
+                                @if($user->avatar)
+                                    <img src="{{ $user->avatar }}" alt="{{ $user->name }}">
+                                @else
+                                    {{ $initials }}
+                                @endif
+                            </div>
+                            <div style="overflow: hidden;">
+                                <div style="font-weight: 800; font-size: 15px; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $user->name }}</div>
+                                <div style="font-size: 11px; color: #64748B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $user->email }}</div>
+                            </div>
+                        </div>
+                        <a href="{{ route('customer.profile') }}" class="dropdown-item">
+                            <i class="fas fa-user-circle"></i> View My Profile
+                        </a>
+                        <a href="{{ route('customer.profile') }}#security-section" class="dropdown-item">
+                            <i class="fas fa-lock"></i> Security Center
+                        </a>
+                        <form action="{{ route('logout') }}" method="POST">
+                            @csrf
+                            <button type="submit" class="dropdown-item logout-item">
+                                <i class="fas fa-power-off"></i> Secure Logout
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -155,6 +208,20 @@
             container.html(html); $('#drawerTotal').text(`₹${total.toLocaleString()}`);
         }
         window.removeFromPortfolio = function(index) { portfolio.splice(index, 1); updateHeaderCount(); renderPortfolio(); };
+
+        // Dropdown Logic
+        function toggleUserDropdown(event) {
+            event.stopPropagation();
+            document.getElementById('userDropdown').classList.toggle('show');
+        }
+        window.onclick = function(event) {
+            if (!event.target.closest('.profile-container')) {
+                const dropdowns = document.getElementsByClassName("dropdown-menu");
+                for (let i = 0; i < dropdowns.length; i++) {
+                    dropdowns[i].classList.remove('show');
+                }
+            }
+        }
     </script>
     @yield('extra_js')
 </body>

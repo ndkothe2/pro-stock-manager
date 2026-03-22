@@ -166,12 +166,50 @@ class AppController extends BaseController
     public function customerDashboard()
     {
         try {
-            // Fetch all active products grouped by their category (assuming name as category for discovery)
             $products = Product::where('delete_status', '0')
                 ->with(['brands', 'user'])
                 ->get();
             
-            // For now, grouping logically by the product type in the name
+            // Map categories to high-quality image keywords
+            $categoryKeywords = [
+                'MOBILE PHONES' => 'smartphone,iphone',
+                'COMPUTING' => 'laptop,macbook',
+                'AUDIO' => 'headphones,earbuds',
+                'PHOTOGRAPHY' => 'camera,dslr',
+                'HOME APPLIANCES' => 'refrigerator,microwave',
+                'ACCESSORIES' => 'watch,smartwatch',
+                'GENERAL MERCHANDISE' => 'gadget,tech'
+            ];
+
+            // Attach fallback logic to each brand
+            foreach ($products as $product) {
+                // Determine category first
+                $category = 'GENERAL MERCHANDISE';
+                if (stripos($product->product_name, 'Smartphone') !== false) $category = 'MOBILE PHONES';
+                elseif (stripos($product->product_name, 'Laptop') !== false) $category = 'COMPUTING';
+                elseif (stripos($product->product_name, 'Headphone') !== false) $category = 'AUDIO';
+                elseif (stripos($product->product_name, 'Camera') !== false) $category = 'PHOTOGRAPHY';
+                elseif (stripos($product->product_name, 'Refrigerator') !== false) $category = 'HOME APPLIANCES';
+                elseif (stripos($product->product_name, 'Watch') !== false) $category = 'ACCESSORIES';
+
+                $keyword = $categoryKeywords[$category];
+
+                foreach($product->brands as $brand) {
+                    $localPath = public_path($brand->brand_image);
+                    if (empty($brand->brand_image) || !file_exists($localPath)) {
+                        // Use Source Unsplash for High-quality targeted images
+                        $brand->brand_image = "https://images.unsplash.com/photo-1523206489230-c012c64b2b48?q=80&w=400&auto=format&fit=crop"; 
+                        // Overriding with targeted keywords for specific categories
+                        if($category == 'MOBILE PHONES') $brand->brand_image = "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=400";
+                        if($category == 'COMPUTING') $brand->brand_image = "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?q=80&w=400";
+                        if($category == 'AUDIO') $brand->brand_image = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=400";
+                        if($category == 'ACCESSORIES') $brand->brand_image = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=400";
+                    } else {
+                        $brand->brand_image = asset($brand->brand_image);
+                    }
+                }
+            }
+            
             $groupedProducts = $products->groupBy(function($item) {
                 if (stripos($item->product_name, 'Smartphone') !== false) return 'MOBILE PHONES';
                 if (stripos($item->product_name, 'Laptop') !== false) return 'COMPUTING';
@@ -549,6 +587,24 @@ class AppController extends BaseController
                 )
                 ->orderBy('tbl_product_details.id', 'desc')
                 ->get();
+
+            $products = $products->map(function($product) {
+                // Formatting image path with Smart Fallback
+                $localPath = public_path($product->product_image);
+                if (empty($product->product_image) || !file_exists($localPath)) {
+                    if (stripos($product->product_name, 'Smartphone') !== false) $img = "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=400";
+                    elseif (stripos($product->product_name, 'Laptop') !== false) $img = "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?q=80&w=400";
+                    elseif (stripos($product->product_name, 'Headphone') !== false) $img = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=400";
+                    else $img = "https://images.unsplash.com/photo-1523206489230-c012c64b2b48?q=80&w=400";
+                    
+                    $product->product_image = $img;
+                } else {
+                    $product->product_image = asset($product->product_image);
+                }
+                
+                $product->created_at_formatted = \Carbon\Carbon::parse($product->created_at)->format('d M Y');
+                return $product;
+            });
 
             return response()->json(['data' => $products]);
         } catch (\Exception $e) {
