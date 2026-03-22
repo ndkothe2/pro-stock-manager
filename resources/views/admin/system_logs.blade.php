@@ -119,10 +119,36 @@
         #actionFilter:focus {
             box-shadow: 0 0 0 4px rgba(67, 56, 202, 0.1);
         }
+
+        /* Premium Pagination Styling */
+        .pagination { 
+            display: flex; 
+            list-style: none; 
+            padding: 0; 
+            gap: 10px; 
+            align-items: center; 
+        }
+        .page-item { border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; background: white; transition: 0.3s; }
+        .page-link { 
+            padding: 10px 18px; 
+            display: block; 
+            color: #64748b; 
+            text-decoration: none; 
+            font-size: 14px; 
+            font-weight: 600; 
+        }
+        .page-item:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 10px rgba(79, 70, 229, 0.1); }
+        .page-item.active { background: var(--primary); border-color: var(--primary); }
+        .page-item.active .page-link { color: white; }
+        .page-item.disabled { opacity: 0.5; cursor: not-allowed; background: #f8fafc; }
+        .page-item.disabled .page-link { pointer-events: none; }
+        
+        /* Fix for Laravel standard icons */
+        .pagination svg { width: 14px; height: 14px; vertical-align: middle; }
     </style>
 
     <div style="margin-top: 30px; display: flex; justify-content: flex-end;">
-        {{ $logs->links() }}
+        {{ $logs->links('pagination::bootstrap-4') }}
     </div>
     @endif
 </div>
