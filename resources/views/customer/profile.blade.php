@@ -35,15 +35,19 @@
     <!-- Main Settings Panels -->
     <div style="flex: 1; min-width: 350px;">
         
-        <!-- Header Banner matching Dashboard style -->
-        <div style="margin-bottom: 40px; background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 45px; border-radius: 32px; color: white; position: relative; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.05);">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+        <!-- Standardized Header Banner (Total Match with Dashboard) -->
+        <div style="margin-bottom: 40px; background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 50px; border-radius: 32px; color: white; position: relative; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid rgba(255,255,255,0.05);">
+            <!-- Decorative Elements -->
+            <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: rgba(99, 102, 241, 0.1); border-radius: 50%; filter: blur(40px);"></div>
+            <div style="position: absolute; bottom: -30px; left: 10%; width: 150px; height: 150px; background: rgba(168, 85, 247, 0.1); border-radius: 50%; filter: blur(30px);"></div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 2;">
                 <div>
-                    <h1 style="margin:0; font-size: 32px; font-weight: 800; letter-spacing: -1.5px; margin-bottom: 10px;">Account Settings <span style="color: #818cf8;">.</span></h1>
-                    <p style="margin:0; color: #94a3b8; font-size: 15px; font-weight: 500;">Update your personal info and keep your account secure in the ProStock vault.</p>
+                    <h1 style="margin:0; font-size: 38px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.1; margin-bottom: 15px;">Account Settings <span style="color: #818cf8;">.</span></h1>
+                    <p style="margin:0; color: #94a3b8; font-size: 16px; line-height: 1.7; font-weight: 500;">Update your personal identity and secure your digital assets in the ProStock vault.</p>
                 </div>
-                <div style="width: 80px; height: 80px; background: rgba(255,255,255,0.05); border-radius: 20px; display: flex; align-items: center; justify-content: center; transform: rotate(-5deg); border: 1px solid rgba(255,255,255,0.05);">
-                    <i class="fas fa-cog" style="font-size: 30px; color: #818cf8;"></i>
+                <div style="background: rgba(255,255,255,0.03); width: 100px; height: 100px; border-radius: 24px; display: flex; align-items: center; justify-content: center; transform: rotate(-5deg); border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(10px);">
+                    <i class="fas fa-cog" style="font-size: 40px; color: #818cf8; text-shadow: 0 0 20px rgba(129, 140, 248, 0.5);"></i>
                 </div>
             </div>
         </div>
